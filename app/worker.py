@@ -1,5 +1,6 @@
 import json, os, pathlib, shlex, subprocess, sys, time, urllib.request, urllib.error
 from .core import db, claim, finish, event, workspace, run, ROOT
+from .providers import chat as provider_chat
 
 TOOLS=[
  {'type':'function','function':{'name':'list_files','description':'List files under workspace (excluding node_modules and .git).','parameters':{'type':'object','properties':{'directory':{'type':'string'}},'required':['directory']}}},
@@ -41,35 +42,40 @@ def execute(root,name,args):
     return 'Unknown tool'
 
 def chat(role,messages):
-    prefix=role.upper()
-    url=os.getenv(f'{prefix}_API_URL','https://api.openai.com/v1').rstrip('/')+'/chat/completions'
-    key=os.getenv(f'{prefix}_API_KEY','')
-    model=os.getenv(f'{prefix}_MODEL','gpt-4.1-mini')
-    if not key:raise RuntimeError(f'Missing {prefix}_API_KEY in .env')
-    body={'model':model,'messages':messages,'tools':TOOLS,'tool_choice':'auto','max_tokens':int(os.getenv('MAX_OUTPUT_TOKENS','3000')),'temperature':0.2}
-    request=urllib.request.Request(url,data=json.dumps(body).encode(),headers={'Content-Type':'application/json','Authorization':'Bearer '+key},method='POST')
-    try:
-        with urllib.request.urlopen(request,timeout=120) as resp:
-            result=json.load(resp)
-    except urllib.error.HTTPError as e:raise RuntimeError('Model API HTTP '+str(e.code)+': '+e.read().decode(errors='replace')[:1000])
-    return result['choices'][0]['message']
+    return provider_chat(role,messages,TOOLS)
 
 def perform(jid,role):
     conn=db();job=conn.execute('SELECT * FROM jobs WHERE id=?',(jid,)).fetchone();root=workspace(jid,role)
     instruction={'frontend':'Implement frontend UI, UX, responsive styling, client application in web/; coordinate with backend through explicit API contracts. Avoid server/.',
                  'backend':'Implement backend APIs, data persistence, integrations, and documentation in server/; avoid web/.',
                  'review':'Review the integrated code, add or improve tests and documentation, run appropriate available checks. Do not approve unverified behavior.'}[role]
+    # Unity/VRChat projects must not use ordinary web/ and server/ role constraints.
+    if (root/'Assets/UdonScripts').exists() or (root/'Packages/manifest.json').exists():
+        if (root/'Assets/UdonScripts').exists():
+            instruction=('Develop VRChat Worlds UdonSharp C# scripts under Assets/UdonScripts and maintain project docs. '
+                'Use UdonSharpBehaviour and supported UdonSharp APIs, never assume all Unity C# APIs are exposed. '
+                'Preserve Unity .meta GUIDs and VPM dependencies. '
+                'Do not claim Unity compilation, scene validation or VRChat upload was performed without an actual Unity/SDK runner. '
+                'Work on disjoint script files to avoid merge conflicts. ')+instruction.split(';')[0]
+        else:
+            instruction=('Develop Unity C# scripts and project assets without modifying project version, package versions, '
+                'or Unity meta GUIDs unnecessarily. Do not claim editor compilation unless actually verified.')
     messages=[{'role':'system','content':f'You are a software engineer in an isolated container. {instruction} You MUST actually create/edit files using tools; do not just describe intended edits. Only edit files for this project. Be careful about security. Do not write secrets. Prefer minimal dependencies. Do not call external services from commands. When done, summarize what changed, remaining issues, and what tests ran. Current role: {role}.'},
               {'role':'user','content':f'Project: {job["name"]}\nUser prompt:\n{job["prompt"]}\nUse tools to implement. Start by inspecting files.'}]
     limit=max(1,min(50,int(os.getenv('MAX_AGENT_STEPS','18'))))
+    completed=False
+    made_changes=False
     for step in range(limit):
+        conn.execute('UPDATE stages SET updated=? WHERE job_id=? AND role=?',(int(time.time()),jid,role)); conn.commit()
         if conn.execute('SELECT status FROM jobs WHERE id=?',(jid,)).fetchone()['status']=='cancelled':raise RuntimeError('Task cancelled')
         msg=chat(role,messages)
         content=msg.get('content') or ''
         calls=msg.get('tool_calls') or []
         if content:event(conn,jid,role,str(content)[:2200])
         messages.append({'role':'assistant','content':content,'tool_calls':calls} if calls else {'role':'assistant','content':content})
-        if not calls:break
+        if not calls:
+            completed=True
+            break
         for call in calls:
             fn=call.get('function',{});name=fn.get('name','');raw=fn.get('arguments','{}')
             try:args=json.loads(raw)
@@ -77,13 +83,17 @@ def perform(jid,role):
             result=execute(root,name,args)
             event(conn,jid,role,f'{name}({str(args.get("path",args.get("command",args.get("directory",""))))[:150]}): {result[:500]}')
             messages.append({'role':'tool','tool_call_id':call['id'],'content':result[:16000]})
-    else:event(conn,jid,role,'Reached maximum agent steps')
+    if not completed:
+        raise RuntimeError('Agent reached MAX_AGENT_STEPS without a final response; job requires review or retry')
     changed=run(['git','status','--porcelain'],cwd=root)
     if changed.strip():
         run(['git','add','-A'],cwd=root)
         run(['git','commit','-m',f'{role}: implement job {jid}'],cwd=root)
         event(conn,jid,role,'Changes committed to role branch')
-    else:event(conn,jid,role,'No changed files were produced')
+    else:
+        event(conn,jid,role,'No changed files were produced')
+        if role != 'review':
+            raise RuntimeError('Agent finished without changing project files')
     conn.close()
 
 def main():

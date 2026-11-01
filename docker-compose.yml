@@ -9,6 +9,8 @@ x-common: &common
     - no-new-privileges:true
   pids_limit: 256
   mem_limit: 4g
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
 services:
   dashboard:
     <<: *common
@@ -24,3 +26,12 @@ services:
   review-agent:
     <<: *common
     command: ["python", "-m", "app.worker", "review"]
+  github-monitor:
+    <<: *common
+    command: ["python", "-m", "app.github_monitor"]
+  github-publisher:
+    <<: *common
+    command: ["python", "-m", "app.github_publish"]
+  github-collaborator:
+    <<: *common
+    command: ["python", "-m", "app.github_collaborator"]

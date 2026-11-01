@@ -31,8 +31,10 @@ def event(conn,job_id,role,msg):
     conn.execute('INSERT INTO events(job_id,role,message,ts) VALUES(?,?,?,?)',(job_id,role,msg[:5000],int(time.time())))
     conn.commit()
 
-def make_job(name,prompt,repository=''):
+def make_job(name,prompt,repository='',template='general'):
     name=safe_name(name)
+    if template not in ('general','unity','vrchat-udonsharp'):raise ValueError('Unsupported project type')
+    if repository and template!='general':raise ValueError('Templates are only available for new projects')
     if not (10 <= len(prompt) <= 12000): raise ValueError('Prompt must be 10–12000 characters')
     if repository and not re.fullmatch(r'https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:\.git)?', repository):
         raise ValueError('Only public GitHub HTTPS clone URLs are currently supported')
@@ -43,13 +45,25 @@ def make_job(name,prompt,repository=''):
     project=ROOT/'projects'/jid
     project.parent.mkdir(exist_ok=True)
     if repository:
-        run(['git','clone','--depth','1',repository,str(project)],timeout=100)
+        from .github_access import allowed_repo
+        from .github_git import git_with_token
+        match=re.fullmatch(r'https://github\\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)(?:\\.git)?',repository)
+        owner_repo=match.group(1) if match else ''
+        try:
+            allowed_repo(owner_repo)
+            git_with_token(['clone','--depth','1',repository,str(project)],timeout=100)
+        except PermissionError:
+            # Non-allowlisted repositories may only be cloned anonymously.
+            run(['git','clone','--depth','1',repository,str(project)],timeout=100)
     else:
         project.mkdir()
         (project/'README.md').write_text(f'# {name}\n\nCreated with TriAgent.\n')
         run(['git','init','-b','main'],cwd=project)
         run(['git','add','.'],cwd=project)
         run(['git','commit','-m','Initialize project'],cwd=project)
+        if template!='general':
+            from .project_templates import scaffold
+            scaffold(project,template,name)
     run(['git','checkout','-b',f'job-{jid}-integrated'],cwd=project)
     for role in ('frontend','backend'):
         ws=workspace(jid,role)
@@ -58,7 +72,7 @@ def make_job(name,prompt,repository=''):
     conn.execute('INSERT INTO jobs(id,name,prompt,status,created,updated,repository) VALUES(?,?,?,?,?,?,?)',(jid,name,prompt,'running',now,now,repository))
     for role in ROLES:
         conn.execute('INSERT INTO stages(job_id,role,status,updated) VALUES(?,?,?,?)',(jid,role,'pending' if role!='review' else 'blocked',now))
-    conn.commit(); event(conn,jid,'system','Project created. Frontend and backend agents queued.')
+    conn.commit(); event(conn,jid,'system','Project created ('+template+'). Frontend and backend agents queued.')
     return jid
 
 def workspace(jid,role):return ROOT/'workspaces'/f'{jid}-{role}'
