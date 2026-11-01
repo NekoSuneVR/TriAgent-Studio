@@ -6,7 +6,7 @@ class UnityTemplateTests(unittest.TestCase):
         files=files_for('vrchat-udonsharp','Example')
         self.assertIn('Assets/UdonScripts/ExampleInteractable.cs',files)
         self.assertIn('UdonSharpBehaviour',files['Assets/UdonScripts/ExampleInteractable.cs'])
-        self.assertIn('Library/',files['.gitignore'])
+        self.assertIn('[Ll]ibrary/',files['.gitignore'])
         self.assertIn('AGENTS.md',files)
     def test_unity_template(self):
         self.assertIn('.gitignore',files_for('unity','Demo'))
