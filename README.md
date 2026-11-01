@@ -84,3 +84,7 @@ See [login / model providers / GitHub Actions monitor](docs/AUTH_PROVIDERS_CI.md
 ## GitHub private repos, live events and security-gated PR publication
 
 Read [GitHub App setup, signed webhooks, security scanning and automated repair PR publishing](docs/GITHUB_INTEGRATION.md). Configure a GitHub App, repository allowlist and webhook secret. Opt-in `GITHUB_AUTOPUBLISH=true` pushes review-ready repair branches, waits for `python-checks`, `docker` and `security` CI checks, then opens PRs. This does **not** auto-merge to protected branches, approve its own changes or deploy unreviewed code. The dashboard shows webhook activity on its five-second refresh cycle.
+
+## Unity / VRChat UdonSharp project assistance
+
+The dashboard now offers source project types for Unity and VRChat Worlds/UdonSharp. Create a private GitHub repository through an authenticated owner-authorised endpoint, or work with an existing repo. Read [remote Unity/VRChat development and limitations](docs/VRCHAT_UNITY.md). This feature creates and edits source code on the VPS; it does **not** install Unity/VRChat SDK or automatically compile/upload worlds. The repository creation control does not yet wire the newly created repo to a generated job.
