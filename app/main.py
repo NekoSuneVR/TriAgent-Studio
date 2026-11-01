@@ -6,8 +6,12 @@ from pydantic import BaseModel, Field
 from .core import db, make_job, ROOT
 from .auth import auth, login, LoginInput
 from .providers import public_config
+from .github_webhooks import router as github_webhook_router, recent_events
+from .github_publish import publish_job
+app_placeholder = None
 
 app=FastAPI(title='TriAgent VPS',docs_url=None,redoc_url=None,openapi_url=None)
+app.include_router(github_webhook_router)
 class JobInput(BaseModel):
     name:str=Field(min_length=1,max_length=60)
     prompt:str=Field(min_length=10,max_length=12000)
@@ -17,6 +21,12 @@ class JobInput(BaseModel):
 def index():return FileResponse(Path(__file__).parent/'static'/'index.html')
 @app.post('/api/auth/login')
 def login_route(payload:LoginInput,request:Request):return login(payload,request)
+@app.get('/api/github/events',dependencies=[Depends(auth)])
+def github_events():return recent_events()
+@app.post('/api/jobs/{jid}/publish',dependencies=[Depends(auth)])
+def publish(jid:str):
+    try:return publish_job(jid)
+    except (ValueError,PermissionError,RuntimeError,KeyError) as exc:raise HTTPException(409,str(exc))
 @app.get('/api/providers',dependencies=[Depends(auth)])
 def providers():return public_config()
 @app.get('/api/status',dependencies=[Depends(auth)])
