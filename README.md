@@ -10,9 +10,10 @@ Install Docker Engine and the Docker Compose plugin, then:
 unzip triagent-vps.zip
 cd triagent-vps
 cp .env.example .env
+# After installing Python dependencies: python -m app.password_hash
 # Generate a 32-byte+ dashboard secret
 python3 -c 'import secrets; print(secrets.token_urlsafe(36))'
-nano .env   # Paste token, and configure all three API keys/models
+nano .env   # Configure SESSION_SECRET, DASHBOARD_PASSWORD_HASH and provider models/keys
 mkdir -p data
 chmod 700 data
 chmod 600 .env
@@ -26,7 +27,7 @@ Default dashboard listens on `127.0.0.1:8088` on the VPS (not public). From your
 ssh -L 8088:127.0.0.1:8088 ubuntu@YOUR_VPS_IP
 ```
 
-Then browse to **http://localhost:8088**, paste `DASHBOARD_TOKEN`, and click **Connect**. Use a properly configured HTTPS reverse proxy + access control if you need internet-facing access. Do **not** expose the dashboard HTTP port to the internet directly.
+Then browse to **http://localhost:8088**, enter your configured dashboard username and password, and click **Log in**. Use a properly configured HTTPS reverse proxy + access control if you need internet-facing access. Do **not** expose the dashboard HTTP port to the internet directly.
 
 ## How it works
 
@@ -75,3 +76,7 @@ For cloned repos, `main` might be named differently; use `git branch -a` to find
 ## Changing worker count
 
 The compose file starts exactly one worker per role. They cooperate through SQLite, so the queue prevents two workers from claiming the same stage. Roles are intentionally fixed at three for this starter.
+
+## PR #1: secure login, providers, Actions monitoring, GHCR
+
+See [login / model providers / GitHub Actions monitor](docs/AUTH_PROVIDERS_CI.md) and [GHCR deployment](docs/DEPLOY_GHCR.md). A strong password hash and session signing secret are required. Supported providers include Ollama, OpenAI, Codex via API, native Claude, LiteLLM, OmniRoute and other OpenAI-compatible endpoints. CI monitoring queues local AI repair tasks; it does not directly publish fixes or automatically merge. Model selection uses explicit configured free-model candidates or local Ollama discovery; free pricing is not independently verified.
