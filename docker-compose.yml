@@ -29,3 +29,6 @@ services:
   github-monitor:
     <<: *common
     command: ["python", "-m", "app.github_monitor"]
+  github-publisher:
+    <<: *common
+    command: ["python", "-m", "app.github_publish"]
