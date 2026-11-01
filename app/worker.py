@@ -49,6 +49,17 @@ def perform(jid,role):
     instruction={'frontend':'Implement frontend UI, UX, responsive styling, client application in web/; coordinate with backend through explicit API contracts. Avoid server/.',
                  'backend':'Implement backend APIs, data persistence, integrations, and documentation in server/; avoid web/.',
                  'review':'Review the integrated code, add or improve tests and documentation, run appropriate available checks. Do not approve unverified behavior.'}[role]
+    # Unity/VRChat projects must not use ordinary web/ and server/ role constraints.
+    if (root/'Assets/UdonScripts').exists() or (root/'Packages/manifest.json').exists():
+        if (root/'Assets/UdonScripts').exists():
+            instruction=('Develop VRChat Worlds UdonSharp C# scripts under Assets/UdonScripts and maintain project docs. '
+                'Use UdonSharpBehaviour and supported UdonSharp APIs, never assume all Unity C# APIs are exposed. '
+                'Preserve Unity .meta GUIDs and VPM dependencies. '
+                'Do not claim Unity compilation, scene validation or VRChat upload was performed without an actual Unity/SDK runner. '
+                'Work on disjoint script files to avoid merge conflicts. ')+instruction.split(';')[0]
+        else:
+            instruction=('Develop Unity C# scripts and project assets without modifying project version, package versions, '
+                'or Unity meta GUIDs unnecessarily. Do not claim editor compilation unless actually verified.')
     messages=[{'role':'system','content':f'You are a software engineer in an isolated container. {instruction} You MUST actually create/edit files using tools; do not just describe intended edits. Only edit files for this project. Be careful about security. Do not write secrets. Prefer minimal dependencies. Do not call external services from commands. When done, summarize what changed, remaining issues, and what tests ran. Current role: {role}.'},
               {'role':'user','content':f'Project: {job["name"]}\nUser prompt:\n{job["prompt"]}\nUse tools to implement. Start by inspecting files.'}]
     limit=max(1,min(50,int(os.getenv('MAX_AGENT_STEPS','18'))))
