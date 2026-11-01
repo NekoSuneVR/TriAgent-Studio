@@ -18,7 +18,8 @@ mkdir -p data
 sudo chown -R 10001:10001 data
 chmod 700 data
 chmod 600 .env
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 docker compose logs -f --tail=50
 ```
 
@@ -91,3 +92,7 @@ Read [GitHub App setup, signed webhooks, security scanning and automated repair 
 The dashboard now offers source project types for Unity and VRChat Worlds/UdonSharp. Create a private GitHub repository through an authenticated owner-authorised endpoint, or work with an existing repo. Read [remote Unity/VRChat development and limitations](docs/VRCHAT_UNITY.md). This feature creates and edits source code on the VPS; it does **not** install Unity/VRChat SDK or automatically compile/upload worlds. The repository creation control does not yet wire the newly created repo to a generated job.
 
 **Non-root container:** data bind mounts must be owned by UID/GID `10001:10001`; after updating existing VPS installs, run `sudo chown -R 10001:10001 data` before restarting workers. Avoid running this operation on shared storage not dedicated to TriAgent.
+
+## Compose image configuration
+
+The default `docker-compose.yml` uses the prebuilt `ghcr.io/nekosunevr/triagent-studio:latest` image for Dockge/VPS deployment, keeping all seven service commands and the shared `./data` mount. Override it with `TRIAGENT_IMAGE=ghcr.io/nekosunevr/triagent-studio:<tag>` in `.env`. The image must be accessible to your Docker host (GHCR login may be required for private packages). To **build locally** instead, run `docker build -t triagent-studio:local .` and set `TRIAGENT_IMAGE=triagent-studio:local` in `.env` before starting Compose. Ensure `./data` is owned by UID/GID 10001 for non-root containers.
