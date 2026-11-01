@@ -80,3 +80,7 @@ The compose file starts exactly one worker per role. They cooperate through SQLi
 ## PR #1: secure login, providers, Actions monitoring, GHCR
 
 See [login / model providers / GitHub Actions monitor](docs/AUTH_PROVIDERS_CI.md) and [GHCR deployment](docs/DEPLOY_GHCR.md). A strong password hash and session signing secret are required. Supported providers include Ollama, OpenAI, Codex via API, native Claude, LiteLLM, OmniRoute and other OpenAI-compatible endpoints. CI monitoring queues local AI repair tasks; it does not directly publish fixes or automatically merge. Model selection uses explicit configured free-model candidates or local Ollama discovery; free pricing is not independently verified.
+
+## GitHub private repos, live events and security-gated PR publication
+
+Read [GitHub App setup, signed webhooks, security scanning and automated repair PR publishing](docs/GITHUB_INTEGRATION.md). Configure a GitHub App, repository allowlist and webhook secret. Opt-in `GITHUB_AUTOPUBLISH=true` pushes review-ready repair branches, waits for `python-checks`, `docker` and `security` CI checks, then opens PRs. This does **not** auto-merge to protected branches, approve its own changes or deploy unreviewed code. The dashboard shows webhook activity on its five-second refresh cycle.
