@@ -10,6 +10,10 @@ from .github_webhooks import router as github_webhook_router, recent_events
 from .github_publish import publish_job
 from .github_actions import list_installation_repositories, merge_explicitly, deploy_explicitly, MergeRequest, DeploymentRequest
 from .github_repository_creator import RepoCreateRequest,create_repository
+from .github_settings import current as github_settings_current, update as github_settings_update
+class GithubSettingsUpdate(BaseModel):
+    changes:dict[str,str|int|bool]
+
 app_placeholder = None
 
 app=FastAPI(title='TriAgent VPS',docs_url=None,redoc_url=None,openapi_url=None)
@@ -32,6 +36,12 @@ def github_repositories():return list_installation_repositories()
 def github_merge(request:MergeRequest):return merge_explicitly(request)
 @app.post('/api/github/deploy',dependencies=[Depends(auth)])
 def github_deploy(request:DeploymentRequest):return deploy_explicitly(request)
+@app.get('/api/github/settings',dependencies=[Depends(auth)])
+def github_settings_read():return github_settings_current()
+@app.put('/api/github/settings',dependencies=[Depends(auth)])
+def github_settings_write(payload:GithubSettingsUpdate):
+    try:return github_settings_update(payload.changes)
+    except ValueError as exc:raise HTTPException(400,str(exc))
 @app.get('/api/github/events',dependencies=[Depends(auth)])
 def github_events():return recent_events()
 @app.post('/api/jobs/{jid}/publish',dependencies=[Depends(auth)])
