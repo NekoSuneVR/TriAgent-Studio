@@ -1,5 +1,6 @@
 import json, os, pathlib, shlex, subprocess, sys, time, urllib.request, urllib.error
 from .core import db, claim, finish, event, workspace, run, ROOT
+from .providers import chat as provider_chat
 
 TOOLS=[
  {'type':'function','function':{'name':'list_files','description':'List files under workspace (excluding node_modules and .git).','parameters':{'type':'object','properties':{'directory':{'type':'string'}},'required':['directory']}}},
@@ -41,18 +42,7 @@ def execute(root,name,args):
     return 'Unknown tool'
 
 def chat(role,messages):
-    prefix=role.upper()
-    url=os.getenv(f'{prefix}_API_URL','https://api.openai.com/v1').rstrip('/')+'/chat/completions'
-    key=os.getenv(f'{prefix}_API_KEY','')
-    model=os.getenv(f'{prefix}_MODEL','gpt-4.1-mini')
-    if not key:raise RuntimeError(f'Missing {prefix}_API_KEY in .env')
-    body={'model':model,'messages':messages,'tools':TOOLS,'tool_choice':'auto','max_tokens':int(os.getenv('MAX_OUTPUT_TOKENS','3000')),'temperature':0.2}
-    request=urllib.request.Request(url,data=json.dumps(body).encode(),headers={'Content-Type':'application/json','Authorization':'Bearer '+key},method='POST')
-    try:
-        with urllib.request.urlopen(request,timeout=120) as resp:
-            result=json.load(resp)
-    except urllib.error.HTTPError as e:raise RuntimeError('Model API HTTP '+str(e.code)+': '+e.read().decode(errors='replace')[:1000])
-    return result['choices'][0]['message']
+    return provider_chat(role,messages,TOOLS)
 
 def perform(jid,role):
     conn=db();job=conn.execute('SELECT * FROM jobs WHERE id=?',(jid,)).fetchone();root=workspace(jid,role)
