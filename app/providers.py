@@ -23,16 +23,17 @@ PROVIDERS={
 }
 def config(role):
     prefix=role.upper()
-    provider=os.getenv(prefix+'_PROVIDER','openai').lower()
+    provider=os.getenv(prefix+'_PROVIDER') or os.getenv('AI_PROVIDER','openai')
+    provider=provider.lower()
     if provider not in PROVIDERS:raise RuntimeError('Unknown provider: '+provider)
     default_url,requires_key=PROVIDERS[provider]
-    url=os.getenv(prefix+'_API_URL') or default_url
-    key=os.getenv(prefix+'_API_KEY','')
-    model=os.getenv(prefix+'_MODEL','')
+    url=os.getenv(prefix+'_API_URL') or os.getenv('AI_API_URL') or default_url
+    key=os.getenv(prefix+'_API_KEY') or os.getenv('AI_API_KEY','')
+    model=os.getenv(prefix+'_MODEL') or os.getenv('AI_MODEL','')
     if not url:raise RuntimeError(prefix+'_API_URL required for '+provider)
     if requires_key and not key:raise RuntimeError(prefix+'_API_KEY required for '+provider)
     if model.lower() in ('','auto','free'):
-        model=choose_model(provider,url,key,os.getenv(prefix+'_FREE_MODELS',''))
+        model=choose_model(provider,url,key,os.getenv(prefix+'_FREE_MODELS') or os.getenv('AI_FREE_MODELS',''))
     return provider,url.rstrip('/'),key,model
 
 def choose_model(provider,url,key,models):
@@ -94,6 +95,6 @@ def public_config():
     out={}
     for role in ('frontend','backend','review'):
         p=role.upper()
-        out[role]={'provider':os.getenv(p+'_PROVIDER','openai'),'model':os.getenv(p+'_MODEL','auto'),
-                   'free_models':[x for x in os.getenv(p+'_FREE_MODELS','').split(',') if x]}
+        out[role]={'provider':os.getenv(p+'_PROVIDER') or os.getenv('AI_PROVIDER','openai'),'model':os.getenv(p+'_MODEL') or os.getenv('AI_MODEL','auto'),
+                   'free_models':[x for x in (os.getenv(p+'_FREE_MODELS') or os.getenv('AI_FREE_MODELS','')).split(',') if x]}
     return {'providers':list(PROVIDERS),'roles':out,'note':'Free depends on provider account, model and quota; Ollama locally avoids per-token API billing but uses VPS compute.'}

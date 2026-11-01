@@ -23,9 +23,18 @@ def verify(password,stored):
 
 def signing_key():
     key=os.getenv('SESSION_SECRET','')
-    if len(key)<32 or key.startswith('REPLACE_'):
-        raise HTTPException(503,'Set SESSION_SECRET to a random secret (at least 32 characters)')
-    return key.encode()
+    if key:
+        if len(key)<32 or key.startswith('REPLACE_'):raise HTTPException(503,'SESSION_SECRET must be a random secret of at least 32 characters')
+        return key.encode()
+    # Single container: persist a random signing key in shared SQLite on first boot.
+    from .core import db
+    c=db()
+    try:
+        c.execute('CREATE TABLE IF NOT EXISTS instance_secrets (id INTEGER PRIMARY KEY CHECK(id=1), key TEXT NOT NULL)')
+        c.execute('INSERT OR IGNORE INTO instance_secrets(id,key) VALUES(1,?)',(secrets.token_urlsafe(48),))
+        c.commit()
+        return c.execute('SELECT key FROM instance_secrets WHERE id=1').fetchone()['key'].encode()
+    finally:c.close()
 
 def make_session():
     payload=base64.urlsafe_b64encode(json.dumps({'exp':int(time.time())+3600,'nonce':secrets.token_hex(8)},separators=(',',':')).encode()).decode().rstrip('=')
@@ -50,7 +59,11 @@ def login(body:LoginInput,request:Request):
     if len(FAILURES[ip])>=8:raise HTTPException(429,'Too many attempts; try again later')
     username=os.getenv('DASHBOARD_USERNAME','admin')
     stored=os.getenv('DASHBOARD_PASSWORD_HASH','')
-    if not stored:raise HTTPException(503,'DASHBOARD_PASSWORD_HASH is not configured')
+    if not stored:
+        from .setup import account
+        row=account()
+        if not row:raise HTTPException(403,'Create an administrator account before logging in')
+        username,stored=row['username'],row['password_hash']
     ok=hmac.compare_digest(body.username,username) and verify(body.password,stored)
     if not ok:
         FAILURES[ip].append(now)

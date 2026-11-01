@@ -1,37 +1,32 @@
+# TriAgent Studio — one container for dashboard, AI and GitHub automation
 name: triagent
-x-common: &common
-  build: .
-  env_file: .env
-  restart: unless-stopped
-  volumes:
-    - ./data:/data
-  security_opt:
-    - no-new-privileges:true
-  pids_limit: 256
-  mem_limit: 4g
-  extra_hosts:
-    - "host.docker.internal:host-gateway"
+
 services:
-  dashboard:
-    <<: *common
+  triagent:
+    image: ${TRIAGENT_IMAGE:-ghcr.io/nekosunevr/triagent-studio:latest}
+    restart: unless-stopped
+    init: true
+    command: ["python", "-m", "app.supervisor"]
+
+    env_file:
+      - .env
+
     ports:
       - "${DASHBOARD_BIND:-127.0.0.1}:${DASHBOARD_PORT:-8088}:8080"
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
-  frontend-agent:
-    <<: *common
-    command: ["python", "-m", "app.worker", "frontend"]
-  backend-agent:
-    <<: *common
-    command: ["python", "-m", "app.worker", "backend"]
-  review-agent:
-    <<: *common
-    command: ["python", "-m", "app.worker", "review"]
-  github-monitor:
-    <<: *common
-    command: ["python", "-m", "app.github_monitor"]
-  github-publisher:
-    <<: *common
-    command: ["python", "-m", "app.github_publish"]
-  github-collaborator:
-    <<: *common
-    command: ["python", "-m", "app.github_collaborator"]
+
+    volumes:
+      - ./data:/data
+
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 4g
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/setup/status', timeout=4)"]
+      interval: 30s
+      timeout: 8s
+      retries: 3
+      start_period: 20s

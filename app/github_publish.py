@@ -7,6 +7,7 @@ import os,re,subprocess,time
 from .core import db, ROOT
 from .github_access import api,allowed_repo
 from .github_git import git_with_token
+from .github_settings import get, enabled
 
 def identifiers(job):
     m=re.fullmatch(r'https://github\.com/([\w.-]+/[\w.-]+)(?:\.git)?',job['repository'] or '')
@@ -64,7 +65,7 @@ def publish_job(jid):
     return {'status':'published','url':url}
 
 def publish_ready():
-    if os.getenv('GITHUB_AUTOPUBLISH','false').lower()!='true':return
+    if not enabled('autopublish'):return
     conn=db()
     conn.execute('CREATE TABLE IF NOT EXISTS publications (job_id TEXT PRIMARY KEY, sha TEXT, status TEXT, url TEXT DEFAULT "", updated INTEGER)')
     rows=conn.execute("""SELECT j.id FROM jobs j LEFT JOIN publications p ON j.id=p.job_id
@@ -79,6 +80,6 @@ def main():
     while True:
         try:publish_ready()
         except Exception as exc:print('Publisher error:',str(exc),flush=True)
-        time.sleep(max(30,int(os.getenv('GITHUB_POLL_SECONDS','180'))))
+        time.sleep(max(30,int(get('poll_seconds'))))
 
 if __name__=='__main__':main()

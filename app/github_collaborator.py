@@ -6,6 +6,7 @@ never modify fork-owned branches. All GitHub mutations use installation permissi
 import os,time,re,urllib.parse
 from .core import db,make_job
 from .github_access import api,allowed_repo
+from .github_settings import get, enabled
 
 def repos():
     return [allowed_repo(r.strip()) for r in os.getenv('GITHUB_ALLOWED_REPOS','').split(',') if r.strip()]
@@ -51,7 +52,7 @@ def scan_pull_requests(c,repo):
             issue_comment(repo,number,'**TriAgent advisory review** (commit `'+head[:12]+'`)\n\n'+summary+
                 '\n\nAutomated review can miss vulnerabilities and may produce false positives. A human should inspect the code.')
             # Only enqueue a repair for a branch owned by this repository, not a contributor fork.
-            if risky and pr['head']['repo']['full_name'].lower()==repo.lower() and os.getenv('GITHUB_AUTO_REPAIR_PRS','false').lower()=='true':
+            if risky and pr['head']['repo']['full_name'].lower()==repo.lower() and enabled('auto_repair_prs'):
                 prompt=('Investigate potential code-execution and credential risks in pull request #'+str(number)+
                     ' at '+head+'. Do not assume heuristics prove vulnerability. Create code changes and tests for confirmed problems; do not merge.\n'+summary)
                 make_job('pr-review-'+str(number),prompt,'https://github.com/'+repo)
@@ -76,7 +77,7 @@ def security_alerts(c,repo):
                     'body':'Security alert detected on a scheduled check, including inactive repositories.\n\n'+
                     'Severity: '+str(severity)+'\nAlert: '+url+
                     '\n\nInvestigate and confirm impact before applying changes. Do not expose exploits or secrets in comments.'})
-                if os.getenv('GITHUB_AUTO_REPAIR_SECURITY','false').lower()=='true':
+                if enabled('auto_repair_security'):
                     make_job('security-'+kind+'-'+ident,
                         'Investigate and remediate the security alert '+url+' in '+repo+'. Add a regression test and verify safely. Do not merge automatically.',
                         'https://github.com/'+repo)
@@ -88,14 +89,14 @@ def poll():
     c=db()
     ensure_tables(c)
     for repo in repos():
-        if os.getenv('GITHUB_REVIEW_PRS','false').lower()=='true':scan_pull_requests(c,repo)
-        if os.getenv('GITHUB_SECURITY_WATCH','false').lower()=='true':security_alerts(c,repo)
+        if enabled('review_prs'):scan_pull_requests(c,repo)
+        if enabled('security_watch'):security_alerts(c,repo)
     c.close()
 
 def main():
     while True:
         try:poll()
         except Exception as exc:print('GitHub collaborator error:',str(exc),flush=True)
-        time.sleep(max(300,int(os.getenv('GITHUB_COLLABORATOR_SECONDS','1800'))))
+        time.sleep(max(300,int(get('collaborator_seconds'))))
 
 if __name__=='__main__':main()
