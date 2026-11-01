@@ -2,9 +2,10 @@
 import json, os, time
 from .core import db, make_job
 from .github_access import api, allowed_repo
+from .github_settings import get, enabled
 
 def poll_once():
-    repo=os.getenv('GITHUB_MONITOR_REPO','').strip()
+    repo=get('monitor_repo').strip()
     if not repo or not __import__('re').fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+',repo):
         raise ValueError('Set a valid GITHUB_MONITOR_REPO in owner/repository format')
     allowed_repo(repo)
@@ -41,8 +42,8 @@ def poll_once():
 def main():
     while True:
         try:
-            if os.getenv('GITHUB_MONITOR_ENABLED','false').lower()=='true':poll_once()
+            if enabled('monitor_enabled'):poll_once()
         except Exception as e:print('GitHub Actions monitor:',str(e),flush=True)
-        time.sleep(max(60,int(os.getenv('GITHUB_POLL_SECONDS','180'))))
+        time.sleep(max(60,int(get('poll_seconds'))))
 
 if __name__=='__main__':main()
