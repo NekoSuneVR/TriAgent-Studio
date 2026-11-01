@@ -1,7 +1,7 @@
 name: Security scan
 on:
   push:
-    branches: [main]
+    branches: [main, 'job-*']
   pull_request:
     branches: [main]
   workflow_dispatch:
