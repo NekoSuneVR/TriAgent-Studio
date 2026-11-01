@@ -26,7 +26,7 @@ def setup_status():
 
 def enroll(data:SetupInput, request:Request):
     # Allow only loopback or private reverse proxy deployments, enforce HTTPS for remote.
-    if request.url.scheme!='https' and not (request.client and request.client.host in ('127.0.0.1','::1')):
+    if request.url.scheme!='https' and not (request.client and request.client.host in ('127.0.0.1','::1')) and os.getenv('DASHBOARD_BIND','127.0.0.1') not in ('127.0.0.1','::1'):
         # Reverse proxy deployment requires correct forwarded scheme and trusted proxy headers.
         raise HTTPException(403,'First-time setup requires HTTPS (or local loopback)')
     if os.getenv('DASHBOARD_PASSWORD_HASH'):raise HTTPException(409,'An administrator is already configured in .env')
