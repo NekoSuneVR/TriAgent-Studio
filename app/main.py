@@ -9,6 +9,7 @@ from .providers import public_config
 from .github_webhooks import router as github_webhook_router, recent_events
 from .github_publish import publish_job
 from .github_actions import list_installation_repositories, merge_explicitly, deploy_explicitly, MergeRequest, DeploymentRequest
+from .github_repository_creator import RepoCreateRequest,create_repository
 app_placeholder = None
 
 app=FastAPI(title='TriAgent VPS',docs_url=None,redoc_url=None,openapi_url=None)
@@ -23,6 +24,8 @@ class JobInput(BaseModel):
 def index():return FileResponse(Path(__file__).parent/'static'/'index.html')
 @app.post('/api/auth/login')
 def login_route(payload:LoginInput,request:Request):return login(payload,request)
+@app.post('/api/github/repositories',dependencies=[Depends(auth)])
+def github_create_repo(payload:RepoCreateRequest):return create_repository(payload)
 @app.get('/api/github/repositories',dependencies=[Depends(auth)])
 def github_repositories():return list_installation_repositories()
 @app.post('/api/github/merge',dependencies=[Depends(auth)])
