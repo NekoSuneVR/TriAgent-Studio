@@ -91,3 +91,11 @@ Read [GitHub App setup, signed webhooks, security scanning and automated repair 
 The dashboard now offers source project types for Unity and VRChat Worlds/UdonSharp. Create a private GitHub repository through an authenticated owner-authorised endpoint, or work with an existing repo. Read [remote Unity/VRChat development and limitations](docs/VRCHAT_UNITY.md). This feature creates and edits source code on the VPS; it does **not** install Unity/VRChat SDK or automatically compile/upload worlds. The repository creation control does not yet wire the newly created repo to a generated job.
 
 **Non-root container:** data bind mounts must be owned by UID/GID `10001:10001`; after updating existing VPS installs, run `sudo chown -R 10001:10001 data` before restarting workers. Avoid running this operation on shared storage not dedicated to TriAgent.
+
+## Single-container Dockge mode (PR #3)
+
+Use the revised `docker-compose.yml`: one `triagent` service starts dashboard, three workers and GitHub automation as supervised processes. To use your shared OmniRoute endpoint, set `AI_PROVIDER=omniroute`, `AI_API_URL=https://omni.nekosunevr.co.uk/v1`, `AI_API_KEY=...`, and optional `FRONTEND_MODEL`, `BACKEND_MODEL`, `REVIEW_MODEL`. No repeated role provider/key/URL required. The one-service mode does not support independent Docker scaling by role and has a shared 4 GiB memory limit.
+
+**First boot:** leave `DASHBOARD_PASSWORD_HASH` blank, open the dashboard via localhost or a properly configured HTTPS reverse proxy, and create your administrator in the setup form. The account hash and generated session-signing key persist in `./data/tasks.sqlite3`; back up this data securely. With a password hash already defined in `.env`, existing logins take precedence and setup is disabled. The dashboard still does not edit GitHub App secrets; set these in `.env`.
+
+Run `mkdir -p data && sudo chown -R 10001:10001 data && docker compose pull && docker compose up -d`. For remote access, terminate HTTPS at a trusted reverse proxy with correct forwarded-protocol handling and do not expose the unencrypted port publicly. If configuring a public bind, set `DASHBOARD_SETUP_TOKEN` for an additional enrollment gate; the browser setup form currently needs a matching header supplied by an administrator or a trusted proxy.
