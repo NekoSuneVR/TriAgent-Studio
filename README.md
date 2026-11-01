@@ -15,6 +15,7 @@ cp .env.example .env
 python3 -c 'import secrets; print(secrets.token_urlsafe(36))'
 nano .env   # Configure SESSION_SECRET, DASHBOARD_PASSWORD_HASH and provider models/keys
 mkdir -p data
+sudo chown -R 10001:10001 data
 chmod 700 data
 chmod 600 .env
 docker compose up -d --build
@@ -88,3 +89,5 @@ Read [GitHub App setup, signed webhooks, security scanning and automated repair 
 ## Unity / VRChat UdonSharp project assistance
 
 The dashboard now offers source project types for Unity and VRChat Worlds/UdonSharp. Create a private GitHub repository through an authenticated owner-authorised endpoint, or work with an existing repo. Read [remote Unity/VRChat development and limitations](docs/VRCHAT_UNITY.md). This feature creates and edits source code on the VPS; it does **not** install Unity/VRChat SDK or automatically compile/upload worlds. The repository creation control does not yet wire the newly created repo to a generated job.
+
+**Non-root container:** data bind mounts must be owned by UID/GID `10001:10001`; after updating existing VPS installs, run `sudo chown -R 10001:10001 data` before restarting workers. Avoid running this operation on shared storage not dedicated to TriAgent.
