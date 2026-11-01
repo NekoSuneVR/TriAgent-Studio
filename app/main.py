@@ -8,6 +8,7 @@ from .auth import auth, login, LoginInput
 from .providers import public_config
 from .github_webhooks import router as github_webhook_router, recent_events
 from .github_publish import publish_job
+from .github_actions import list_installation_repositories, merge_explicitly, deploy_explicitly, MergeRequest, DeploymentRequest
 app_placeholder = None
 
 app=FastAPI(title='TriAgent VPS',docs_url=None,redoc_url=None,openapi_url=None)
@@ -21,6 +22,12 @@ class JobInput(BaseModel):
 def index():return FileResponse(Path(__file__).parent/'static'/'index.html')
 @app.post('/api/auth/login')
 def login_route(payload:LoginInput,request:Request):return login(payload,request)
+@app.get('/api/github/repositories',dependencies=[Depends(auth)])
+def github_repositories():return list_installation_repositories()
+@app.post('/api/github/merge',dependencies=[Depends(auth)])
+def github_merge(request:MergeRequest):return merge_explicitly(request)
+@app.post('/api/github/deploy',dependencies=[Depends(auth)])
+def github_deploy(request:DeploymentRequest):return deploy_explicitly(request)
 @app.get('/api/github/events',dependencies=[Depends(auth)])
 def github_events():return recent_events()
 @app.post('/api/jobs/{jid}/publish',dependencies=[Depends(auth)])
