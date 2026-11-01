@@ -1,37 +1,72 @@
+# TriAgent Studio — Docker Compose / Dockge
+# Configure credentials in .env and prepare ./data with UID:GID 10001:10001.
+
 name: triagent
-x-common: &common
-  build: .
-  env_file: .env
+
+# ---------------------------------------------------------------------------
+# Shared settings — applied to all services
+# ---------------------------------------------------------------------------
+x-triagent: &triagent
+  image: ${TRIAGENT_IMAGE:-ghcr.io/nekosunevr/triagent-studio:latest}
   restart: unless-stopped
+
+  env_file:
+    - .env
+
   volumes:
     - ./data:/data
+
   security_opt:
     - no-new-privileges:true
+
   pids_limit: 256
   mem_limit: 4g
+
   extra_hosts:
     - "host.docker.internal:host-gateway"
+
 services:
+  # -------------------------------------------------------------------------
+  # Dashboard — browser UI / API
+  # -------------------------------------------------------------------------
   dashboard:
-    <<: *common
+    <<: *triagent
     ports:
       - "${DASHBOARD_BIND:-127.0.0.1}:${DASHBOARD_PORT:-8088}:8080"
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+    command:
+      - uvicorn
+      - app.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+
+  # -------------------------------------------------------------------------
+  # AI development team — scale independently if needed
+  # -------------------------------------------------------------------------
   frontend-agent:
-    <<: *common
+    <<: *triagent
     command: ["python", "-m", "app.worker", "frontend"]
+
   backend-agent:
-    <<: *common
+    <<: *triagent
     command: ["python", "-m", "app.worker", "backend"]
+
   review-agent:
-    <<: *common
+    <<: *triagent
     command: ["python", "-m", "app.worker", "review"]
+
+  # -------------------------------------------------------------------------
+  # GitHub automation — controlled by flags in .env
+  # -------------------------------------------------------------------------
   github-monitor:
-    <<: *common
+    <<: *triagent
     command: ["python", "-m", "app.github_monitor"]
+
   github-publisher:
-    <<: *common
+    <<: *triagent
     command: ["python", "-m", "app.github_publish"]
+
   github-collaborator:
-    <<: *common
+    <<: *triagent
     command: ["python", "-m", "app.github_collaborator"]
