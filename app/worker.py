@@ -62,14 +62,19 @@ def perform(jid,role):
     messages=[{'role':'system','content':f'You are a software engineer in an isolated container. {instruction} You MUST actually create/edit files using tools; do not just describe intended edits. Only edit files for this project. Be careful about security. Do not write secrets. Prefer minimal dependencies. Do not call external services from commands. When done, summarize what changed, remaining issues, and what tests ran. Current role: {role}.'},
               {'role':'user','content':f'Project: {job["name"]}\nUser prompt:\n{job["prompt"]}\nUse tools to implement. Start by inspecting files.'}]
     limit=max(1,min(50,int(os.getenv('MAX_AGENT_STEPS','18'))))
+    completed=False
+    made_changes=False
     for step in range(limit):
+        conn.execute('UPDATE stages SET updated=? WHERE job_id=? AND role=?',(int(time.time()),jid,role)); conn.commit()
         if conn.execute('SELECT status FROM jobs WHERE id=?',(jid,)).fetchone()['status']=='cancelled':raise RuntimeError('Task cancelled')
         msg=chat(role,messages)
         content=msg.get('content') or ''
         calls=msg.get('tool_calls') or []
         if content:event(conn,jid,role,str(content)[:2200])
         messages.append({'role':'assistant','content':content,'tool_calls':calls} if calls else {'role':'assistant','content':content})
-        if not calls:break
+        if not calls:
+            completed=True
+            break
         for call in calls:
             fn=call.get('function',{});name=fn.get('name','');raw=fn.get('arguments','{}')
             try:args=json.loads(raw)
@@ -77,13 +82,17 @@ def perform(jid,role):
             result=execute(root,name,args)
             event(conn,jid,role,f'{name}({str(args.get("path",args.get("command",args.get("directory",""))))[:150]}): {result[:500]}')
             messages.append({'role':'tool','tool_call_id':call['id'],'content':result[:16000]})
-    else:event(conn,jid,role,'Reached maximum agent steps')
+    if not completed:
+        raise RuntimeError('Agent reached MAX_AGENT_STEPS without a final response; job requires review or retry')
     changed=run(['git','status','--porcelain'],cwd=root)
     if changed.strip():
         run(['git','add','-A'],cwd=root)
         run(['git','commit','-m',f'{role}: implement job {jid}'],cwd=root)
         event(conn,jid,role,'Changes committed to role branch')
-    else:event(conn,jid,role,'No changed files were produced')
+    else:
+        event(conn,jid,role,'No changed files were produced')
+        if role != 'review':
+            raise RuntimeError('Agent finished without changing project files')
     conn.close()
 
 def main():
