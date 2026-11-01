@@ -32,3 +32,6 @@ services:
   github-publisher:
     <<: *common
     command: ["python", "-m", "app.github_publish"]
+  github-collaborator:
+    <<: *common
+    command: ["python", "-m", "app.github_collaborator"]
