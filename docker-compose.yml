@@ -1,0 +1,26 @@
+name: triagent
+x-common: &common
+  build: .
+  env_file: .env
+  restart: unless-stopped
+  volumes:
+    - ./data:/data
+  security_opt:
+    - no-new-privileges:true
+  pids_limit: 256
+  mem_limit: 4g
+services:
+  dashboard:
+    <<: *common
+    ports:
+      - "${DASHBOARD_BIND:-127.0.0.1}:${DASHBOARD_PORT:-8088}:8080"
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+  frontend-agent:
+    <<: *common
+    command: ["python", "-m", "app.worker", "frontend"]
+  backend-agent:
+    <<: *common
+    command: ["python", "-m", "app.worker", "backend"]
+  review-agent:
+    <<: *common
+    command: ["python", "-m", "app.worker", "review"]
