@@ -17,6 +17,7 @@ class JobInput(BaseModel):
     name:str=Field(min_length=1,max_length=60)
     prompt:str=Field(min_length=10,max_length=12000)
     repository:str=Field(default='',max_length=300)
+    template:str=Field(default='general',max_length=40)
 
 @app.get('/')
 def index():return FileResponse(Path(__file__).parent/'static'/'index.html')
@@ -42,7 +43,7 @@ def status():
     return {'jobs':{r['status']:r['n'] for r in rows},'workers':['frontend','backend','review']}
 @app.post('/api/jobs',dependencies=[Depends(auth)])
 def create(payload:JobInput):
-    try:return {'id':make_job(payload.name,payload.prompt,payload.repository)}
+    try:return {'id':make_job(payload.name,payload.prompt,payload.repository,payload.template)}
     except (ValueError,RuntimeError) as e:raise HTTPException(400,str(e))
 @app.get('/api/jobs',dependencies=[Depends(auth)])
 def jobs():
