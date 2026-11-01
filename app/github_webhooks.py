@@ -15,7 +15,8 @@ async def webhook(request:Request):
     if not hmac.compare_digest(request.headers.get('x-hub-signature-256',''),expected):
         raise HTTPException(401,'Invalid webhook signature')
     payload=json.loads(raw)
-    repo=allowed_repo(payload.get('repository',{}).get('full_name',''))
+    try:repo=allowed_repo(payload.get('repository',{}).get('full_name',''))
+    except (ValueError,PermissionError):raise HTTPException(403,'Repository not authorised')
     kind=request.headers.get('x-github-event','')
     delivery=request.headers.get('x-github-delivery','')
     if not delivery or len(delivery)>100:raise HTTPException(400,'Missing delivery id')
