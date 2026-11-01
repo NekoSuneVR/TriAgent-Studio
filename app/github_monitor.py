@@ -1,19 +1,13 @@
 """Optional read-only GitHub Actions poller. Queues repair work; never pushes automatically."""
-import json, os, time, urllib.request, urllib.error
+import json, os, time
 from .core import db, make_job
-
-def api(path):
-    token=os.getenv('GITHUB_MONITOR_TOKEN','')
-    if not token:raise RuntimeError('Set GITHUB_MONITOR_TOKEN')
-    req=urllib.request.Request('https://api.github.com'+path,headers={
-        'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json',
-        'X-GitHub-Api-Version':'2022-11-28','User-Agent':'TriAgent-Studio'})
-    with urllib.request.urlopen(req,timeout=25) as r:return json.load(r)
+from .github_access import api, allowed_repo
 
 def poll_once():
     repo=os.getenv('GITHUB_MONITOR_REPO','').strip()
     if not repo or not __import__('re').fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+',repo):
         raise ValueError('Set a valid GITHUB_MONITOR_REPO in owner/repository format')
+    allowed_repo(repo)
     runs=api('/repos/'+repo+'/actions/runs?status=completed&per_page=20').get('workflow_runs',[])
     conn=db()
     conn.execute('CREATE TABLE IF NOT EXISTS workflow_seen (run_id INTEGER PRIMARY KEY, repo TEXT, conclusion TEXT, job_id TEXT, created INTEGER)')
