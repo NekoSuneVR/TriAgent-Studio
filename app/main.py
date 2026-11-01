@@ -5,6 +5,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from .core import db, make_job, ROOT
 from .auth import auth, login, LoginInput
+from .setup import SetupInput,setup_status,enroll
 from .providers import public_config
 from .github_webhooks import router as github_webhook_router, recent_events
 from .github_publish import publish_job
@@ -26,6 +27,10 @@ class JobInput(BaseModel):
 
 @app.get('/')
 def index():return FileResponse(Path(__file__).parent/'static'/'index.html')
+@app.get('/api/setup/status')
+def setup_check():return setup_status()
+@app.post('/api/setup')
+def setup_create(payload:SetupInput,request:Request):return enroll(payload,request)
 @app.post('/api/auth/login')
 def login_route(payload:LoginInput,request:Request):return login(payload,request)
 @app.post('/api/github/repositories',dependencies=[Depends(auth)])
