@@ -11,6 +11,15 @@ PROVIDERS={
  'omniroute':('',False),
  'openrouter':('https://openrouter.ai/api/v1',True),
  'custom':('',False),
+ 'groq':('https://api.groq.com/openai/v1',True),
+ 'deepseek':('https://api.deepseek.com/v1',True),
+ 'together':('https://api.together.xyz/v1',True),
+ 'fireworks':('https://api.fireworks.ai/inference/v1',True),
+ 'mistral':('https://api.mistral.ai/v1',True),
+ 'cerebras':('https://api.cerebras.ai/v1',True),
+ 'gemini_compatible':('https://generativelanguage.googleapis.com/v1beta/openai',True),
+ 'nvidia':('https://integrate.api.nvidia.com/v1',True),
+ 'huggingface':('https://router.huggingface.co/v1',True),
 }
 def config(role):
     prefix=role.upper()
