@@ -43,7 +43,16 @@ def make_job(name,prompt,repository=''):
     project=ROOT/'projects'/jid
     project.parent.mkdir(exist_ok=True)
     if repository:
-        run(['git','clone','--depth','1',repository,str(project)],timeout=100)
+        from .github_access import allowed_repo
+        from .github_git import git_with_token
+        match=re.fullmatch(r'https://github\\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)(?:\\.git)?',repository)
+        owner_repo=match.group(1) if match else ''
+        try:
+            allowed_repo(owner_repo)
+            git_with_token(['clone','--depth','1',repository,str(project)],timeout=100)
+        except PermissionError:
+            # Non-allowlisted repositories may only be cloned anonymously.
+            run(['git','clone','--depth','1',repository,str(project)],timeout=100)
     else:
         project.mkdir()
         (project/'README.md').write_text(f'# {name}\n\nCreated with TriAgent.\n')
