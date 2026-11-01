@@ -1,17 +1,13 @@
-import os, time, secrets
+import os, time
 from pathlib import Path
-from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from .core import db, make_job, ROOT
+from .auth import auth, login, LoginInput
+from .providers import public_config
 
 app=FastAPI(title='TriAgent VPS',docs_url=None,redoc_url=None,openapi_url=None)
-TOKEN=os.getenv('DASHBOARD_TOKEN','')
-
-def auth(authorization: str|None=Header(None)):
-    if not TOKEN or TOKEN=='REPLACE_WITH_LONG_RANDOM_SECRET':raise HTTPException(503,'Set DASHBOARD_TOKEN in .env')
-    if not authorization or not authorization.startswith('Bearer ') or not secrets.compare_digest(authorization[7:],TOKEN):raise HTTPException(401,'Invalid dashboard token')
-
 class JobInput(BaseModel):
     name:str=Field(min_length=1,max_length=60)
     prompt:str=Field(min_length=10,max_length=12000)
@@ -19,6 +15,10 @@ class JobInput(BaseModel):
 
 @app.get('/')
 def index():return FileResponse(Path(__file__).parent/'static'/'index.html')
+@app.post('/api/auth/login')
+def login_route(payload:LoginInput,request:Request):return login(payload,request)
+@app.get('/api/providers',dependencies=[Depends(auth)])
+def providers():return public_config()
 @app.get('/api/status',dependencies=[Depends(auth)])
 def status():
     c=db(); rows=c.execute('SELECT status,COUNT(*) as n FROM jobs GROUP BY status').fetchall()
